@@ -1,0 +1,2 @@
+# seqda
+Sequential Data Store
