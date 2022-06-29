@@ -1,6 +1,6 @@
 {
   "name": "seqda",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sequential Data Store",
   "main": "src/index.js",
   "type": "commonjs",
@@ -13,7 +13,14 @@
     "type": "git",
     "url": "git+https://github.com/th317erd/seqda.git"
   },
-  "keywords": [ "redux", "store", "data", "react-state", "vuex", "state" ],
+  "keywords": [
+    "redux",
+    "store",
+    "data",
+    "react-state",
+    "vuex",
+    "state"
+  ],
   "author": "Wyatt Greenway",
   "license": "MIT",
   "bugs": {
