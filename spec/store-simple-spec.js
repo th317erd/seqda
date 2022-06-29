@@ -1,8 +1,9 @@
 'use strict';
 
+const Nife = require('nife');
 const { createStore } = require('../src');
 
-/* global describe, it, expect, beforeEach */
+/* global describe, it, expect, beforeEach, spyOn */
 
 describe('Store Simple', () => {
   let store;
@@ -92,6 +93,42 @@ describe('Store Simple', () => {
     ]);
   });
 
+  it('can will cache results', () => {
+    store.assignees.add({ name: 'John', id: 1 });
+    store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
+    store.todos.add({ description: 'Make it work!', assigneeID: 1, id: 2 });
+
+    spyOn(Nife, 'get').and.callThrough();
+
+    // Not cached
+    store.todos.get();
+
+    // Cached
+    store.todos.get();
+    store.todos.get();
+    store.todos.get();
+    store.todos.get();
+
+    expect(Nife.get.calls.count()).toEqual(1);
+  });
+
+  it('will fail if we attempt to assign to the state directly', () => {
+    store.assignees.add({ name: 'John', id: 1 });
+    store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
+
+    let state = store.getState();
+    expect(state).toEqual({
+      assignees:  [
+        { name: 'John', id: 1 },
+      ],
+      todos:      [
+        { description: 'Git r\' done!', assigneeID: 1, id: 1 },
+      ],
+    });
+
+    expect(() => store.todos.bad()).toThrow(new TypeError('Cannot add property 1, object is not extensible'));
+  });
+
   it('can get global state', () => {
     store.assignees.add({ name: 'John', id: 1 });
     store.assignees.add({ name: 'Bob', id: 2 });
@@ -126,23 +163,6 @@ describe('Store Simple', () => {
     });
   });
 
-  it('will fail if we attempt to assign to the state directly', () => {
-    store.assignees.add({ name: 'John', id: 1 });
-    store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
-
-    let state = store.getState();
-    expect(state).toEqual({
-      assignees:  [
-        { name: 'John', id: 1 },
-      ],
-      todos:      [
-        { description: 'Git r\' done!', assigneeID: 1, id: 1 },
-      ],
-    });
-
-    expect(() => store.todos.bad()).toThrow(new TypeError('Cannot add property 1, object is not extensible'));
-  });
-
   it('can listen for change events', async () => {
     let result = await new Promise((resolve) => {
       store.on('update', ({ modified }) => {
@@ -154,8 +174,8 @@ describe('Store Simple', () => {
     });
 
     expect(result).toEqual([
-      'todos',
       'assignees',
+      'todos',
     ]);
   });
 
@@ -166,7 +186,8 @@ describe('Store Simple', () => {
     let results = [];
 
     store.on('fetchScope', ({ scopeName }) => {
-      results.push(scopeName);
+      if (results.indexOf(scopeName) < 0)
+        results.push(scopeName);
     });
 
     store.todos.get();

@@ -3,10 +3,9 @@
 const Nife          = require('nife');
 const EventEmitter  = require('events');
 
-const INTERNAL_GET_STATE    = Symbol.for('__seqdaGetState');
-const INTERNAL_UPDATE_STATE = Symbol.for('__seqdaUpdateState');
-const QUEUE_CHANGE_EVENT    = Symbol.for('__seqdaQueueChangeEvent');
-const QUEUE_CHANGE_INFO     = Symbol.for('__seqdaQueueChangeInfo');
+const QUEUE_CHANGE_EVENT  = Symbol.for('__seqdaQueueChangeEvent');
+const QUEUE_CHANGE_INFO   = Symbol.for('__seqdaQueueChangeInfo');
+const INTERNAL_STATE      = Symbol.for('__seqdaInternalState');
 
 function queueChangeEvent(path) {
   let info = this[QUEUE_CHANGE_INFO];
@@ -25,25 +24,75 @@ function queueChangeEvent(path) {
   info.eventQueue[path] = true;
 }
 
+function copyKeysToArray(_value, source) {
+  let value = _value;
+
+  if (Array.isArray(value) && source) {
+    let keys = Object.keys(source);
+    for (let i = 0, il = keys.length; i < il; i++) {
+      let key = keys[i];
+      if ((/^\d+$/).test(key))
+        continue;
+
+      value[key] = source[key];
+    }
+  }
+
+  return value;
+}
+
 function clone(value) {
   if (!value)
     return value;
 
-  if (typeof value === 'object') {
+  if (value && typeof value === 'object') {
     if (Array.isArray(value))
-      return value.slice();
-    else
-      return Object.assign({}, value);
+      return copyKeysToArray(value.slice(), value);
+
+    return Object.assign({}, value);
   }
 
   return value;
+}
+
+function setPath(_context, path, value) {
+  let context   = clone(_context);
+  let pathParts = path.split('.');
+  let current   = context;
+
+  for (let i = 0, il = pathParts.length; i < il; i++) {
+    let pathPart = pathParts[i];
+
+    if ((i + 1) >= il) {
+      let finalValue;
+
+      if (Array.isArray(value))
+        finalValue = copyKeysToArray(value, current[pathPart]);
+      else
+        finalValue = value;
+
+      if (finalValue && typeof finalValue === 'object')
+        Object.freeze(finalValue);
+
+      current[pathPart] = finalValue;
+    } else {
+      current[pathPart] = clone(current[pathPart]);
+    }
+
+    if (current && typeof current === 'object')
+      Object.freeze(current);
+
+    current = current[pathPart];
+  }
+
+  return context;
 }
 
 function getPath(...parts) {
   return parts.filter(Boolean).join('.');
 }
 
-function createStoreSubsection(store, sectionTemplate, parent, path, scopeName) {
+function createStoreSubsection(store, sectionTemplate, path) {
   const isCacheInvalid = (scopeName, args) => {
     let thisCache = cache[scopeName];
     if (!thisCache)
@@ -58,15 +107,11 @@ function createStoreSubsection(store, sectionTemplate, parent, path, scopeName) 
         return true;
     }
 
-    if (thisCache.state !== state)
-      return true;
-
     return false;
   };
 
   const setCache = (scopeName, args, result) => {
     cache[scopeName] = {
-      state,
       args,
       result,
     };
@@ -84,117 +129,38 @@ function createStoreSubsection(store, sectionTemplate, parent, path, scopeName) 
     };
   };
 
-  const copyScopes = (newState, oldState, thisValue, scopeName) => {
-    for (let i = 0, il = subScopes.length; i < il; i++) {
-      let thisScopeName = subScopes[i];
-
-      Object.defineProperty(newState, thisScopeName, {
-        writable:     false,
-        enumerable:   true,
-        configurable: false,
-        value:        (thisScopeName === scopeName) ? thisValue : oldState[thisScopeName],
-      });
-    }
-  };
-
-  const get = (defaultValue) => {
+  const get = () => {
     store.emit('fetchScope', { store, scopeName: path });
-    return (state === undefined) ? defaultValue : state;
+    let currentState = Nife.get(store[INTERNAL_STATE], path);
+    return currentState;
   };
 
   const set = (value) => {
-    if (value && typeof value === 'object' && value === state)
+    let currentState = Nife.get(store[INTERNAL_STATE], path);
+    if (value && typeof value === 'object' && value === currentState)
       throw new Error(`Error: "${getPath(path)}" the state value is the same, but it is required to be different.`);
 
-    if (value === previousState)
-      return;
+    let previousState = currentState;
+    store[INTERNAL_STATE] = setPath(store[INTERNAL_STATE], path, value);
 
-    previousState = state;
-    state = value;
+    cache = {};
 
-    if (Array.isArray(state))
-      copyScopes(state, previousState);
+    if (store[QUEUE_CHANGE_EVENT])
+      store[QUEUE_CHANGE_EVENT](path, value, previousState);
 
-    if (typeof state === 'object')
-      Object.freeze(state);
-
-    if (parent)
-      parent[INTERNAL_UPDATE_STATE](scopeName, state);
-
-    store[QUEUE_CHANGE_EVENT](path, state, previousState);
-
-    return state;
+    return value;
   };
 
-  const updateState = (thisScopeName, newState) => {
-    let oldState = state;
-
-    state = clone(state);
-
-    if (Array.isArray(state)) {
-      copyScopes(state, oldState, newState, thisScopeName);
-    } else {
-      Object.defineProperty(state, thisScopeName, {
-        writable:     false,
-        enumerable:   true,
-        configurable: false,
-        value:        newState,
-      });
-    }
-
-    Object.freeze(state);
-
-    if (parent)
-      parent[INTERNAL_UPDATE_STATE](scopeName, state);
-  };
+  if (path && !Object.prototype.hasOwnProperty.call(sectionTemplate, '_'))
+    throw new Error(`Error: "${getPath}._" default value must be defined.`);
 
   const scope   = (!path) ? store : {};
   let keys      = Object.keys(sectionTemplate || {});
-  let state     = (path) ? sectionTemplate._ : {};
   let subScopes = [];
   let cache     = {};
-  let previousState;
 
-  if (!path) {
-    Object.defineProperties(scope, {
-      'getState': {
-        writable:     false,
-        enumberable:  false,
-        configurable: false,
-        value:        () => state,
-      },
-      [QUEUE_CHANGE_EVENT]: {
-        writable:     false,
-        enumberable:  false,
-        configurable: false,
-        value:        queueChangeEvent.bind(scope),
-      },
-      [QUEUE_CHANGE_INFO]: {
-        writable:     true,
-        enumberable:  false,
-        configurable: false,
-        value:        {},
-      },
-    });
-  }
-
-  Object.defineProperties(scope, {
-    [INTERNAL_GET_STATE]: {
-      writable:     false,
-      enumberable:  false,
-      configurable: false,
-      value:        () => state,
-    },
-    [INTERNAL_UPDATE_STATE]: {
-      writable:     false,
-      enumberable:  false,
-      configurable: false,
-      value:        updateState,
-    },
-  });
-
-  if (state && typeof state === 'object')
-    Object.freeze(state);
+  if (path)
+    set(clone(sectionTemplate._));
 
   for (let i = 0, il = keys.length; i < il; i++) {
     let key = keys[i];
@@ -203,22 +169,19 @@ function createStoreSubsection(store, sectionTemplate, parent, path, scopeName) 
 
     let value = sectionTemplate[key];
     if (Nife.instanceOf(value, 'object')) {
-      scope[key] = createStoreSubsection(store, value, scope, getPath(path, key), key);
+      scope[key] = createStoreSubsection(store, value, getPath(path, key));
       subScopes.push(key);
       continue;
     }
 
     if (typeof value !== 'function')
-      throw new TypeError(`createStoreSubsection: Value of "${getPath(path, key)}" is invalid. All properties must be functions, or subsections.`);
+      throw new TypeError(`Error: Value of "${getPath(path, key)}" is invalid. All properties must be functions, or sub scopes.`);
 
     scope[key] = createScopeMethod(key, value);
   }
 
-  if (parent && state)
-    set(clone(state));
-
   if (!path)
-    return scope;
+    return scope; // We can't freeze the store
   else
     return Object.freeze(scope);
 }
@@ -228,7 +191,38 @@ function createStore(template) {
     throw new TypeError('createStore: provided "template" must be an object.');
 
   const store = new EventEmitter();
-  return createStoreSubsection(store, template);
+
+  Object.defineProperty(store, INTERNAL_STATE, {
+    writable:     true,
+    enumerable:   false,
+    configurable: true,
+    value:        {},
+  });
+
+  let constructedStore = createStoreSubsection(store, template);
+
+  Object.defineProperties(constructedStore, {
+    'getState': {
+      writable:     false,
+      enumberable:  false,
+      configurable: false,
+      value:        () => constructedStore[INTERNAL_STATE],
+    },
+    [QUEUE_CHANGE_EVENT]: {
+      writable:     false,
+      enumberable:  false,
+      configurable: false,
+      value:        queueChangeEvent.bind(constructedStore),
+    },
+    [QUEUE_CHANGE_INFO]: {
+      writable:     true,
+      enumberable:  false,
+      configurable: false,
+      value:        {},
+    },
+  });
+
+  return constructedStore;
 }
 
 module.exports = {

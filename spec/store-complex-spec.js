@@ -17,7 +17,7 @@ describe('Store Complex', () => {
             key2: 'hello',
             key3: 10,
           },
-          update({ get, set }, values) {
+          update({ get, set, store }, values) {
             set(Object.assign({}, get(), values || {}));
           },
           get({ get }) {
