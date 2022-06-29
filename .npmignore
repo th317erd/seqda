@@ -105,3 +105,9 @@ dist
 
 # VS Code
 .vscode
+
+# Unit tests
+spec
+
+# Other
+.eslintrc.js

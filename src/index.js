@@ -208,6 +208,15 @@ function createStore(template) {
       configurable: false,
       value:        () => constructedStore[INTERNAL_STATE],
     },
+    'hydrate': {
+      writable:     false,
+      enumberable:  false,
+      configurable: false,
+      value:        (value) => {
+        constructedStore[INTERNAL_STATE] = Object.freeze(clone(value));
+        queueChangeEvent.call(constructedStore, '*');
+      },
+    },
     [QUEUE_CHANGE_EVENT]: {
       writable:     false,
       enumberable:  false,
