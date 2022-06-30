@@ -92,7 +92,7 @@ function getPath(...parts) {
   return parts.filter(Boolean).join('.');
 }
 
-function createStoreSubsection(store, sectionTemplate, path) {
+function createStoreSubsection(options, store, sectionTemplate, path) {
   const isCacheInvalid = (scopeName, args) => {
     let thisCache = cache[scopeName];
     if (!thisCache)
@@ -130,7 +130,9 @@ function createStoreSubsection(store, sectionTemplate, path) {
   };
 
   const get = () => {
-    store.emit('fetchScope', { store, scopeName: path });
+    if (options.emitOnFetch === true)
+      store.emit('fetchScope', { store, scopeName: path });
+
     let currentState = Nife.get(store[INTERNAL_STATE], path);
     return currentState;
   };
@@ -169,7 +171,7 @@ function createStoreSubsection(store, sectionTemplate, path) {
 
     let value = sectionTemplate[key];
     if (Nife.instanceOf(value, 'object')) {
-      scope[key] = createStoreSubsection(store, value, getPath(path, key));
+      scope[key] = createStoreSubsection(options, store, value, getPath(path, key));
       subScopes.push(key);
       continue;
     }
@@ -186,11 +188,14 @@ function createStoreSubsection(store, sectionTemplate, path) {
     return Object.freeze(scope);
 }
 
-function createStore(template) {
+function createStore(template, _options) {
   if (!Nife.instanceOf(template, 'object'))
     throw new TypeError('createStore: provided "template" must be an object.');
 
+  const options = _options || {};
   const store = new EventEmitter();
+
+  store.setMaxListeners(Infinity);
 
   Object.defineProperty(store, INTERNAL_STATE, {
     writable:     true,
@@ -199,7 +204,7 @@ function createStore(template) {
     value:        {},
   });
 
-  let constructedStore = createStoreSubsection(store, template);
+  let constructedStore = createStoreSubsection(options, store, template);
 
   Object.defineProperties(constructedStore, {
     'getState': {

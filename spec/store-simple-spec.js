@@ -69,7 +69,7 @@ describe('Store Simple', () => {
           return get().filter(({ name, id }) => (name === nameOrID || id === nameOrID));
         },
       },
-    });
+    }, { emitOnFetch: true });
   });
 
   it('can add and fetch items from the store', () => {
