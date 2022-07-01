@@ -1,7 +1,7 @@
 'use strict';
 
 const Nife = require('nife');
-const { createStore } = require('../src');
+const { createStore, cloneStore } = require('../src');
 
 /* global describe, it, expect, beforeEach, spyOn */
 
@@ -165,9 +165,16 @@ describe('Store Simple', () => {
 
   it('can listen for change events', async () => {
     let result = await new Promise((resolve) => {
-      store.on('update', ({ modified }) => {
+      const onUpdate = ({ modified, previousStore }) => {
+        expect(previousStore.getState().assignees).toEqual([]);
+        expect(previousStore.getState().todos).toEqual([]);
+
         resolve(modified);
-      });
+
+        store.off('update', onUpdate);
+      };
+
+      store.on('update', onUpdate);
 
       store.assignees.add({ name: 'John', id: 1 });
       store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
@@ -177,6 +184,33 @@ describe('Store Simple', () => {
       'assignees',
       'todos',
     ]);
+
+    let ranUpdateEvent = false;
+
+    await new Promise((resolve) => {
+      const onUpdate = ({ modified, previousStore }) => {
+        expect(previousStore.getState().assignees).toEqual([
+          { name: 'John', id: 1 },
+        ]);
+
+        expect(previousStore.getState().todos).toEqual([
+          { description: 'Git r\' done!', assigneeID: 1, id: 1 },
+        ]);
+
+        resolve(modified);
+
+        store.off('update', onUpdate);
+
+        ranUpdateEvent = true;
+      };
+
+      store.on('update', onUpdate);
+
+      store.assignees.add({ name: 'Bob', id: 2 });
+      store.todos.add({ description: 'Work harder bob!', assigneeID: 2, id: 2 });
+    });
+
+    expect(ranUpdateEvent).toBe(true);
   });
 
   it('can listen for scopes being fetched', async () => {
@@ -194,6 +228,56 @@ describe('Store Simple', () => {
 
     expect(results).toEqual([
       'todos',
+    ]);
+  });
+
+  it('can clone a store', async () => {
+    store.assignees.add({ name: 'John', id: 1 });
+    store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
+
+    let initialState = store.getState();
+
+    let clonedStore = cloneStore(store);
+    clonedStore.assignees.add({ name: 'Bob', id: 2 });
+    clonedStore.todos.add({ description: 'Work harder please!', assigneeID: 2, id: 2 });
+
+    expect(store.getState()).toBe(initialState);
+    expect(store.getState()).toEqual(initialState);
+
+    let clonedState = clonedStore.getState();
+    expect(clonedState).not.toEqual(initialState);
+    expect(clonedState.assignees).toEqual([
+      { name: 'John', id: 1 },
+      { name: 'Bob', id: 2 },
+    ]);
+
+    expect(clonedState.todos).toEqual([
+      { description: 'Git r\' done!', assigneeID: 1, id: 1 },
+      { description: 'Work harder please!', assigneeID: 2, id: 2 },
+    ]);
+  });
+
+  it('can clone a read-only store', async () => {
+    store.assignees.add({ name: 'John', id: 1 });
+    store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
+
+    let initialState = store.getState();
+
+    let clonedStore = cloneStore(store, true);
+    clonedStore.assignees.add({ name: 'Bob', id: 2 });
+    clonedStore.todos.add({ description: 'Work harder please!', assigneeID: 2, id: 2 });
+
+    expect(store.getState()).toBe(initialState);
+    expect(store.getState()).toEqual(initialState);
+
+    let clonedState = clonedStore.getState();
+    expect(clonedState).toEqual(initialState);
+    expect(clonedState.assignees).toEqual([
+      { name: 'John', id: 1 },
+    ]);
+
+    expect(clonedState.todos).toEqual([
+      { description: 'Git r\' done!', assigneeID: 1, id: 1 },
     ]);
   });
 });
