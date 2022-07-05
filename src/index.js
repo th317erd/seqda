@@ -220,6 +220,9 @@ function createStoreSubsection(options, sectionTemplate, path) {
     if (value && typeof value === 'object' && value === currentState)
       throw new Error(`Error: "${getPath(path)}" the state value is the same, but it is required to be different.`);
 
+    if (!Nife.propsDiffer(value, currentState))
+      return;
+
     let previousState = currentState;
     this[INTERNAL_STATE] = setPath(this[INTERNAL_STATE], path, value);
 

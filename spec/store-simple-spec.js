@@ -1,3 +1,4 @@
+/* eslint-disable no-magic-numbers */
 'use strict';
 
 const Nife = require('nife');
@@ -69,6 +70,17 @@ describe('Store Simple', () => {
           return get().filter(({ name, id }) => (name === nameOrID || id === nameOrID));
         },
       },
+      scope: {
+        _: {
+          test: true,
+        },
+        set({ get, set }, values) {
+          return set({ ...get(), ...values });
+        },
+        get({ get }) {
+          return get();
+        },
+      },
     }, { emitOnFetch: true });
   });
 
@@ -124,6 +136,9 @@ describe('Store Simple', () => {
       todos:      [
         { description: 'Git r\' done!', assigneeID: 1, id: 1 },
       ],
+      scope: {
+        test: true,
+      },
     });
 
     expect(() => store.todos.bad()).toThrow(new TypeError('Cannot add property 1, object is not extensible'));
@@ -145,6 +160,9 @@ describe('Store Simple', () => {
         { description: 'Git r\' done!', assigneeID: 1, id: 1 },
         { description: 'Make it happen!', assigneeID: 2, id: 2 },
       ],
+      scope: {
+        test: true,
+      },
     });
 
     store.todos.update(2, { description: 'Make it happen!', assigneeID: 1, id: 2 });
@@ -160,7 +178,45 @@ describe('Store Simple', () => {
         { description: 'Git r\' done!', assigneeID: 1, id: 1 },
         { description: 'Make it happen!', assigneeID: 1, id: 2 },
       ],
+      scope: {
+        test: true,
+      },
     });
+  });
+
+  it('will not fire update event if nothing has changed', async () => {
+    let updateCounter = 0;
+
+    let result = await new Promise((resolve) => {
+      const onUpdate = ({ modified, previousStore }) => {
+        updateCounter++;
+        resolve(modified);
+      };
+
+      store.on('update', onUpdate);
+
+      store.scope.set({ test: false });
+    });
+
+    expect(result).toEqual([ 'scope' ]);
+    expect(updateCounter).toEqual(1);
+
+    updateCounter = 0;
+    result = await new Promise((resolve) => {
+      const onUpdate = ({ modified, previousStore }) => {
+        updateCounter++;
+        resolve(modified);
+      };
+
+      store.on('update', onUpdate);
+
+      store.scope.set({ test: false });
+
+      setTimeout(() => resolve([]), 150);
+    });
+
+    expect(result).toEqual([]);
+    expect(updateCounter).toEqual(0);
   });
 
   it('can update store inside update event', async () => {
