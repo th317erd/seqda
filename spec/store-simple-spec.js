@@ -163,6 +163,44 @@ describe('Store Simple', () => {
     });
   });
 
+  it('can update store inside update event', async () => {
+    let updateCounter = 0;
+
+    let result = await new Promise((resolve) => {
+      let totalModified = [];
+
+      const onUpdate = ({ modified, previousStore }) => {
+        updateCounter++;
+
+        if (updateCounter === 1) {
+          expect(previousStore.todos.get()).toEqual([]);
+          store.todos.add({ description: 'Git r\' done!', assigneeID: 1, id: 1 });
+        } else {
+          expect(previousStore.todos.get()).toEqual([]);
+        }
+
+        totalModified = totalModified.concat(modified);
+        if (updateCounter > 1)
+          resolve(totalModified);
+      };
+
+      store.on('update', onUpdate);
+
+      store.assignees.add({ name: 'John', id: 1 });
+    });
+
+    expect(store.todos.get()).toEqual([
+      { description: 'Git r\' done!', assigneeID: 1, id: 1 },
+    ]);
+
+    expect(result).toEqual([
+      'assignees',
+      'todos',
+    ]);
+
+    expect(updateCounter).toEqual(2);
+  });
+
   it('can listen for change events', async () => {
     let result = await new Promise((resolve) => {
       const onUpdate = ({ modified, previousStore }) => {

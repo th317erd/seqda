@@ -53,15 +53,18 @@ function queueChangeEvent(path) {
   if (!info.promise) {
     info.promise = Promise.resolve();
     info.promise.then(() => {
-      this.emit('update', {
-        store:          this,
-        previousStore:  info.previousStore,
-        modified:       Array.from(Object.keys(info.eventQueue)),
-      });
+      let modified      = Array.from(Object.keys(info.eventQueue));
+      let previousStore = info.previousStore;
 
       info.eventQueue = {};
       info.promise = null;
       info.previousStore = cloneStore(this, true);
+
+      this.emit('update', {
+        store: this,
+        previousStore,
+        modified,
+      });
     });
   }
 
