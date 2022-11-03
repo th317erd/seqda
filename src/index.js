@@ -1,15 +1,13 @@
-'use strict';
+import Nife from 'nife';
+import EventEmitter from 'events';
 
-const Nife          = require('nife');
-const EventEmitter  = require('events');
+const QUEUE_CHANGE_EVENT  = Symbol.for('@seqdaQueueChangeEvent');
+const QUEUE_CHANGE_INFO   = Symbol.for('@seqdaQueueChangeInfo');
+const INTERNAL_STATE      = Symbol.for('@seqdaInternalState');
+const UNBOUND_METHOD      = Symbol.for('@seqdaUnboundMethod');
+const DISALLOW_WRITE      = Symbol.for('@seqdaDisallowWrite');
 
-const QUEUE_CHANGE_EVENT  = Symbol.for('__seqdaQueueChangeEvent');
-const QUEUE_CHANGE_INFO   = Symbol.for('__seqdaQueueChangeInfo');
-const INTERNAL_STATE      = Symbol.for('__seqdaInternalState');
-const UNBOUND_METHOD      = Symbol.for('__seqdaUnboundMethod');
-const DISALLOW_WRITE      = Symbol.for('__seqdaDisallowWrite');
-
-function cloneStore(store, readyOnly) {
+export function cloneStore(store, readyOnly) {
   const cloneScope = (scope, _newStore) => {
     let keys      = Object.keys(scope);
     let newScope  = (!_newStore) ? new EventEmitter() : {};
@@ -319,7 +317,7 @@ function initializeStore(store, readyOnly) {
   return store;
 }
 
-function createStore(template, _options) {
+export function createStore(template, _options) {
   if (!Nife.instanceOf(template, 'object'))
     throw new TypeError('createStore: provided "template" must be an object.');
 
@@ -338,8 +336,3 @@ function createStore(template, _options) {
   let constructedStore = createStoreSubsection.call(store, options, template);
   return initializeStore(constructedStore);
 }
-
-module.exports = {
-  cloneStore,
-  createStore,
-};

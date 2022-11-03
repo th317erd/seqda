@@ -4,7 +4,7 @@
   "description": "Sequential Data Store",
   "main": "src/index.js",
   "browser": "dist/index.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "test": "node ./node_modules/.bin/jasmine",
     "test-debug": "node --inspect-brk ./node_modules/.bin/jasmine",

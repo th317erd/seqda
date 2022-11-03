@@ -12,7 +12,8 @@ module.exports = {
     'eslint:recommended',
   ],
   'parserOptions': {
-    'ecmaVersion': 'latest',
+    'ecmaVersion':  'latest',
+    'sourceType':   'module',
   },
   'plugins': [
     '@spothero/eslint-plugin-spothero',

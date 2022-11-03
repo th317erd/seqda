@@ -1,7 +1,5 @@
-'use strict';
-
-const Path = require('node:path');
-const TerserPlugin = require('terser-webpack-plugin');
+import Path from 'node:path';
+import TerserPlugin from 'terser-webpack-plugin';
 
 const isProduction = true;//(process.env.NODE_ENV === 'production');
 
@@ -11,10 +9,13 @@ const config = {
   mode:     'production',
   output:   {
     path:               Path.resolve('./dist'),
+    module:             true,
     scriptType:         'module',
     filename:           'index.js',
     sourceMapFilename:  'index.js.map',
-    libraryTarget:      'module',
+    library:            {
+      type: 'module',
+    },
   },
   plugins: [
     // Add your plugins here
@@ -40,7 +41,7 @@ const config = {
   },
 };
 
-module.exports = () => {
+export default () => {
   if (isProduction)
     config.mode = 'production';
   else

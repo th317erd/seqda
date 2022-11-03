@@ -1,8 +1,6 @@
 /* eslint-disable no-magic-numbers */
-'use strict';
-
-const Nife = require('nife');
-const { createStore, cloneStore } = require('../src');
+import Nife from 'nife';
+import { createStore, cloneStore } from '../src/index.js';
 
 /* global describe, it, expect, beforeEach, spyOn */
 

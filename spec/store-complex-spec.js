@@ -1,6 +1,4 @@
-'use strict';
-
-const { createStore } = require('../src');
+import { createStore } from '../src/index.js';
 
 /* global describe, it, expect, beforeEach */
 
