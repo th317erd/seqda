@@ -6,6 +6,7 @@ const QUEUE_CHANGE_INFO   = Symbol.for('@seqdaQueueChangeInfo');
 const INTERNAL_STATE      = Symbol.for('@seqdaInternalState');
 const UNBOUND_METHOD      = Symbol.for('@seqdaUnboundMethod');
 const DISALLOW_WRITE      = Symbol.for('@seqdaDisallowWrite');
+const CLEAR_CACHES        = Symbol.for('@seqdaClearCaches');
 
 export function cloneStore(store, readyOnly) {
   const cloneScope = (scope, _newStore) => {
@@ -240,6 +241,10 @@ function createStoreSubsection(options, sectionTemplate, path) {
   let subScopes = [];
   let cache     = {};
 
+  // Register cache-clearing function so hydrate() can invalidate all scopes
+  if (this[CLEAR_CACHES])
+    this[CLEAR_CACHES].push(() => { cache = {}; });
+
   if (path)
     setState.call(this, clone(sectionTemplate._));
 
@@ -285,6 +290,12 @@ function initializeStore(store, readyOnly) {
         configurable: false,
         value:        (value) => {
           store[INTERNAL_STATE] = Object.freeze(clone(value));
+
+          // Clear all scope method caches
+          let clearFns = store[CLEAR_CACHES];
+          for (let i = 0, il = clearFns.length; i < il; i++)
+            clearFns[i]();
+
           queueChangeEvent.call(store, '*');
         },
       },
@@ -331,6 +342,13 @@ export function createStore(template, _options) {
     enumerable:   false,
     configurable: false,
     value:        {},
+  });
+
+  Object.defineProperty(store, CLEAR_CACHES, {
+    writable:     false,
+    enumerable:   false,
+    configurable: false,
+    value:        [],
   });
 
   let constructedStore = createStoreSubsection.call(store, options, template);
