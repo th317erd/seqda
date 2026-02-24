@@ -1,6 +1,6 @@
 {
   "name": "seqda",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Sequential Data Store",
   "main": "src/index.js",
   "browser": "dist/index.js",
